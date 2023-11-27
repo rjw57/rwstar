@@ -41,6 +41,7 @@ func drawRuler(s tcell.Screen, y int, m Margins) {
 */
 
 func redraw(s tcell.Screen, l *layout.Layout) {
+	s.Clear()
 	d := l.Document()
 	_, h := s.Size()
 
@@ -99,6 +100,8 @@ func main() {
 
 	redraw(s, l)
 
+	p := d.StartPoint()
+
 	quit := func() {
 		s.Fini()
 		os.Exit(0)
@@ -118,8 +121,20 @@ func main() {
 			l.SetScreenWidth(w)
 			redraw(s, l)
 		case *tcell.EventKey:
-			if ev.Key() == tcell.KeyEscape || ev.Key() == tcell.KeyCtrlC {
+			switch {
+			case ev.Key() == tcell.KeyEscape || ev.Key() == tcell.KeyCtrlC:
 				quit()
+			case ev.Key() == tcell.KeyEnter:
+				p = p.InsertParagraphBreak().End()
+				d = p.Document()
+				l.SetDocument(d)
+				redraw(s, l)
+
+			case ev.Key() == tcell.KeyRune:
+				p = p.InsertText(string(ev.Rune())).End()
+				d = p.Document()
+				l.SetDocument(d)
+				redraw(s, l)
 			}
 		}
 	}
