@@ -1,10 +1,73 @@
 package main
 
-import "log"
-import "os"
-import "github.com/gdamore/tcell/v2"
+import (
+	"fmt"
+	"log"
+	"os"
+	"strings"
+
+	"github.com/gdamore/tcell/v2"
+	"github.com/rjw57/rwstar/document"
+)
+
+var rulerStyle = tcell.StyleDefault
+
+/*
+func drawRuler(s tcell.Screen, y int, m Margins) {
+	w, _ := s.Size()
+	pageWidth := int(math.Max(0, float64(w-m.LeftIndent-m.RightIndent)))
+
+	for x := 0; x < w; x++ {
+		var c rune
+
+		px := x - m.LeftIndent
+		switch {
+		case px == 0:
+			c = '['
+		case px == pageWidth-1:
+			c = ']'
+		case x == 0:
+			c = 'L'
+		case x == w-1:
+			c = 'R'
+		case m.TabStop != 0 && px >= 0 && px < pageWidth && px%m.TabStop == 0:
+			c = '|'
+		default:
+			c = tcell.RuneBullet
+		}
+
+		s.SetContent(x, y, c, nil, rulerStyle)
+	}
+}
+*/
+
+func redraw(s tcell.Screen, d *document.Document) {
+	// drawRuler(s, 0, Margins{LeftIndent: 4, RightIndent: 4, TabStop: 8})
+}
+
+func docToString(d *document.Document) string {
+	var sb strings.Builder
+
+	for pitr := d.Paragraphs(); !pitr.Done(); {
+		_, p := pitr.Next()
+		sb.WriteString(p.String())
+		if !pitr.Done() {
+			sb.WriteRune('\n')
+		}
+	}
+
+	return sb.String()
+}
 
 func main() {
+	d := document.NewDocument()
+	d = d.EndPoint().InsertText("Hello").End().InsertText(", world!").Document()
+	d = d.StartPoint().Forward().InsertText("yyy").Start().InsertText("xxx").Document()
+	d = d.EndPoint().InsertText("Goodbye").Document()
+	fmt.Println(docToString(d))
+
+	return
+
 	s, err := tcell.NewScreen()
 	if err != nil {
 		log.Fatalf("%+v", err)
@@ -20,9 +83,7 @@ func main() {
 	// Clear screen
 	s.Clear()
 
-	s.SetContent(0, 0, 'H', nil, defStyle)
-	s.SetContent(1, 0, 'i', nil, defStyle)
-	s.SetContent(2, 0, '!', nil, defStyle)
+	redraw(s, d)
 
 	quit := func() {
 		s.Fini()
@@ -39,6 +100,7 @@ func main() {
 		switch ev := ev.(type) {
 		case *tcell.EventResize:
 			s.Sync()
+			redraw(s, d)
 		case *tcell.EventKey:
 			if ev.Key() == tcell.KeyEscape || ev.Key() == tcell.KeyCtrlC {
 				quit()
