@@ -1,13 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
-	"strings"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rjw57/rwstar/document"
+	"github.com/rjw57/rwstar/layout"
 )
 
 var rulerStyle = tcell.StyleDefault
@@ -41,43 +40,25 @@ func drawRuler(s tcell.Screen, y int, m Margins) {
 }
 */
 
-func redraw(s tcell.Screen, d *document.Document) {
-	// drawRuler(s, 0, Margins{LeftIndent: 4, RightIndent: 4, TabStop: 8})
-}
+func redraw(s tcell.Screen, l *layout.Layout) {
+	d := l.Document()
+	_, h := s.Size()
 
-func docToString(d *document.Document) string {
-	var sb strings.Builder
-
-	for pitr := d.Paragraphs(); !pitr.Done(); {
+	y := 0
+	pitr := d.Paragraphs()
+	for !pitr.Done() && y < h {
 		_, p := pitr.Next()
-		sb.WriteString(p.String())
-		if !pitr.Done() {
-			sb.WriteRune('\n')
+		for _, ln := range l.ParagraphLines(p) {
+			for x, cell := range ln {
+				s.SetContent(x, y, cell.Mainc, cell.Combc, cell.Style)
+			}
+			y++
 		}
+		y++
 	}
-
-	return sb.String()
 }
 
 func main() {
-	d := (document.NewDocument().
-		StartPoint().
-		InsertText("This is an example paragraph. ").End().
-		InsertText("This is sentence two of an example paragraph. ").End().
-		InsertText("This is sentence three of an example paragraph. ").End().
-		InsertText("This is sentence four of an example paragraph. ").End().
-		InsertParagraphBreak().End().
-		InsertText("This is another example paragraph. ").End().
-		InsertText("This is sentence two of another example paragraph. ").End().
-		InsertText("This is sentence three of another example paragraph. ").End().
-		InsertText("This is sentence four of another example paragraph. ").End().
-		InsertParagraphBreak().End().
-		InsertText("And another example paragraph.").
-		Document())
-	fmt.Println(docToString(d))
-
-	return
-
 	s, err := tcell.NewScreen()
 	if err != nil {
 		log.Fatalf("%+v", err)
@@ -93,7 +74,30 @@ func main() {
 	// Clear screen
 	s.Clear()
 
-	redraw(s, d)
+	d := document.NewDocument()
+	w, _ := s.Size()
+	l, err := layout.NewLayout(d, w)
+	if err != nil {
+		log.Fatalf("%+v", err)
+	}
+
+	d = (d.
+		StartPoint().
+		InsertText("This is an example paragraph. ").End().
+		InsertText("This is sentence two of an example paragraph. ").End().
+		InsertText("This is sentence three of an example paragraph. ").End().
+		InsertText("This is sentence four of an example paragraph. ").End().
+		InsertParagraphBreak().End().
+		InsertText("This is another example paragraph. ").End().
+		InsertText("This is sentence two of another example paragraph. ").End().
+		InsertText("This is sentence three of another example paragraph. ").End().
+		InsertText("This is sentence four of another example paragraph. ").End().
+		InsertParagraphBreak().End().
+		InsertText("And another example paragraph.").
+		Document())
+	l.SetDocument(d)
+
+	redraw(s, l)
 
 	quit := func() {
 		s.Fini()
@@ -110,7 +114,9 @@ func main() {
 		switch ev := ev.(type) {
 		case *tcell.EventResize:
 			s.Sync()
-			redraw(s, d)
+			w, _ = s.Size()
+			l.SetScreenWidth(w)
+			redraw(s, l)
 		case *tcell.EventKey:
 			if ev.Key() == tcell.KeyEscape || ev.Key() == tcell.KeyCtrlC {
 				quit()

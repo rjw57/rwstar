@@ -6,6 +6,7 @@ require (
 	github.com/benbjohnson/immutable v0.4.3
 	github.com/deadpixi/rope v0.1.3
 	github.com/gdamore/tcell/v2 v2.6.0
+	github.com/hashicorp/golang-lru/v2 v2.0.7
 )
 
 require (
