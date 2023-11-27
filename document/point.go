@@ -3,7 +3,6 @@ package document
 import (
 	"bufio"
 
-	"github.com/benbjohnson/immutable"
 	"github.com/deadpixi/rope"
 )
 
@@ -22,13 +21,14 @@ func (p *Point) reader() *rope.Reader {
 }
 
 func (p *Point) clone() *Point {
-	return &Point{d: p.d, paraIndex: p.paraIndex, textOffset: p.textOffset}
+	np := *p
+	return &np
 }
 
 func (p *Point) withDoc(d *Document) *Point {
-	np := p.clone()
+	np := *p
 	np.d = d
-	return np
+	return &np
 }
 
 func (p *Point) Document() *Document {
@@ -98,11 +98,10 @@ func (p *Point) InsertText(text string) *Range {
 	var nd *Document
 
 	if p.IsDocumentEnd() {
-		nd = p.d.setParas(p.d.paragraphs.Append(newParagraph(text)))
+		nd = p.d.appendParagraph(newParagraph(text))
 	} else {
-		nd = p.d
 		para := p.para().insertText(p.textOffset, text)
-		nd = p.d.setParas(p.d.paragraphs.Set(p.paraIndex, para))
+		nd = p.d.setParagraph(p.paraIndex, para)
 	}
 
 	start := p.withDoc(nd)
@@ -113,24 +112,15 @@ func (p *Point) InsertText(text string) *Range {
 
 func (p *Point) InsertParagraphBreak() *Range {
 	if p.IsDocumentEnd() {
-		nd := p.d.setParas(p.d.paragraphs.Append(newParagraph("")))
+		nd := p.d.appendParagraph(newParagraph(""))
 		np := p.withDoc(nd)
 		np.textOffset = 0
 		return &Range{start: np, end: np}
 	}
 
-	lb := immutable.NewListBuilder[*Paragraph]()
-	for i := 0; i < p.paraIndex; i++ {
-		lb.Append(p.d.paragraphs.Get(i))
-	}
 	lp, rp := p.para().split(p.textOffset)
-	lb.Append(lp)
-	lb.Append(rp)
-	for i := p.paraIndex+1; i < p.d.paragraphs.Len(); i++ {
-		lb.Append(p.d.paragraphs.Get(i))
-	}
+	nd := p.d.replaceParagraphs(p.paraIndex, p.paraIndex+1, []*Paragraph{lp, rp})
 
-	nd := p.d.setParas(lb.List())
 	start := p.withDoc(nd)
 	end := start.clone()
 	end.paraIndex ++

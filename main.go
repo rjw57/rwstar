@@ -60,10 +60,20 @@ func docToString(d *document.Document) string {
 }
 
 func main() {
-	d := document.NewDocument()
-	d = d.EndPoint().InsertText("Hello").End().InsertText(", world!").Document()
-	d = d.StartPoint().Forward().InsertText("yyy").Start().InsertText("xxx").Document()
-	d = d.EndPoint().InsertText("Goodbye").Document()
+	d := (document.NewDocument().
+		StartPoint().
+		InsertText("This is an example paragraph. ").End().
+		InsertText("This is sentence two of an example paragraph. ").End().
+		InsertText("This is sentence three of an example paragraph. ").End().
+		InsertText("This is sentence four of an example paragraph. ").End().
+		InsertParagraphBreak().End().
+		InsertText("This is another example paragraph. ").End().
+		InsertText("This is sentence two of another example paragraph. ").End().
+		InsertText("This is sentence three of another example paragraph. ").End().
+		InsertText("This is sentence four of another example paragraph. ").End().
+		InsertParagraphBreak().End().
+		InsertText("And another example paragraph.").
+		Document())
 	fmt.Println(docToString(d))
 
 	return
