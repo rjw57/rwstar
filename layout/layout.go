@@ -24,7 +24,11 @@ type Cell struct {
 	Offset int
 }
 
-type Line []Cell
+type Line struct {
+	Cells       []Cell
+	StartOffset int
+	EndOffset   int
+}
 
 type Lines []Line
 
@@ -36,25 +40,32 @@ type Layout struct {
 
 func (l *Layout) render(p *document.Paragraph) Lines {
 	x := 0
-	line := make(Line, 0, l.screenWidth)
+	line := Line{Cells: make([]Cell, 0, 1), StartOffset: 0}
 	lines := make(Lines, 0, 0)
-	for offset, c := range p.String() {
+	text := p.String()
+	for offset, c := range text {
 		w := 1
 		if x+w > l.screenWidth {
+			line.EndOffset = offset
 			lines = append(lines, line)
-			line = make(Line, 0, l.screenWidth)
+			line = Line{Cells: make([]Cell, 0, 1), StartOffset: offset}
 			x = 0
 		}
-		line = append(line, Cell{Mainc: c, Style: tcell.StyleDefault, Offset: offset})
+		line.Cells = append(line.Cells, Cell{Mainc: c, Style: tcell.StyleDefault, Offset: offset})
 		x += w
 	}
 
 	if x > 0 {
+		line.EndOffset = len(text)
 		lines = append(lines, line)
 	}
 
 	// blank line
-	lines = append(lines, make(Line, 0, 0))
+	lines = append(lines, Line{
+		StartOffset: len(text),
+		EndOffset:   len(text),
+		Cells:       make([]Cell, 0, 0),
+	})
 	return lines
 }
 
@@ -117,7 +128,7 @@ func (l *Layout) String() string {
 	for !pitr.Done() {
 		_, p := pitr.Next()
 		for _, ln := range l.getParagraphLines(p) {
-			for _, cell := range ln {
+			for _, cell := range ln.Cells {
 				sb.WriteRune(cell.Mainc)
 			}
 			sb.WriteRune('\n')
@@ -132,27 +143,30 @@ func (l *Layout) CellLocationForPoint(p *document.Point) (int, int, error) {
 		return -1, -1, ErrorPointIsFromDifferentDocument
 	}
 
+	if l.document.ParagraphCount() == 0 {
+		return 0, 0, nil
+	}
+
 	pitr := p.Document().Paragraphs()
 	lineIndex := 0
-	targetPara := p.Paragraph()
+	targetParaIdx := p.ParagraphIndex()
 	targetOffset := p.TextOffset()
+
 	for !pitr.Done() {
-		_, para := pitr.Next()
+		paraIdx, para := pitr.Next()
 		lns := l.getParagraphLines(para)
 
-		if para == targetPara {
+		if paraIdx == targetParaIdx {
 			for lnIdx, ln := range lns {
-				if len(ln) == 0 {
+				if targetOffset >= para.TextLength() && ln.EndOffset >= targetOffset {
+					return len(ln.Cells), lineIndex + lnIdx, nil
+				}
+
+				if ln.StartOffset > targetOffset || ln.EndOffset <= targetOffset {
 					continue
 				}
 
-				startOffset := ln[0].Offset
-				endOffset := ln[len(ln)-1].Offset
-				if startOffset > targetOffset || endOffset < targetOffset {
-					continue
-				}
-
-				for x, cell := range ln {
+				for x, cell := range ln.Cells {
 					if cell.Offset == targetOffset {
 						return x, lineIndex + lnIdx, nil
 					}
@@ -206,10 +220,6 @@ func (i *LineIterator) Done() bool {
 }
 
 func (i *LineIterator) Next() (int, Line) {
-	if i.Done() {
-		return i.lineIndex, nil
-	}
-
 	lineIndex := i.lineIndex
 	line := i.lines[i.paraLineIndex]
 

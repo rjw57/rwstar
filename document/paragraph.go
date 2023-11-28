@@ -22,3 +22,7 @@ func (p *Paragraph) split(at int) (*Paragraph, *Paragraph) {
 func (p *Paragraph) String() string {
 	return p.text.String()
 }
+
+func (p *Paragraph) TextLength() int {
+	return p.text.Length()
+}

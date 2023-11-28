@@ -47,14 +47,13 @@ func redraw(s tcell.Screen, l *layout.Layout, cp *document.Point) {
 	i := l.LineIterator(0)
 	for y := 0; y < h && !i.Done(); y++ {
 		_, ln := i.Next()
-		for x, cell := range ln {
+		for x, cell := range ln.Cells {
 			s.SetContent(x, y, cell.Mainc, cell.Combc, cell.Style)
 		}
 	}
 
-	if cp == nil {
-		s.HideCursor()
-	} else {
+	s.HideCursor()
+	if cp != nil {
 		cx, cy, err := l.CellLocationForPoint(cp)
 		if err == nil {
 			s.ShowCursor(cx, cy)

@@ -27,7 +27,14 @@ func (p *Point) Document() *Document {
 }
 
 func (p *Point) Paragraph() *Paragraph {
+	if p.paraIndex >= p.d.paragraphs.Len() {
+		return nil
+	}
 	return p.d.paragraphs.Get(p.paraIndex)
+}
+
+func (p *Point) ParagraphIndex() int {
+	return p.paraIndex
 }
 
 func (p *Point) TextOffset() int {
@@ -67,6 +74,10 @@ func (p *Point) DocumentStart() *Point {
 }
 
 func (p *Point) Forward() *Point {
+	if p.IsDocumentEnd() {
+		return p
+	}
+
 	rv := p.Clone()
 
 	textLen := rv.Paragraph().text.Length()
