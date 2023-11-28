@@ -62,7 +62,7 @@ func (p *Point) IsParagraphEnd() bool {
 	if p.IsDocumentEnd() {
 		return true
 	}
-	return p.textOffset >= p.Paragraph().text.Length()
+	return p.textOffset >= p.Paragraph().TextLength()
 }
 
 func (p *Point) DocumentEnd() *Point {
@@ -80,7 +80,8 @@ func (p *Point) Forward() *Point {
 
 	rv := p.Clone()
 
-	textLen := rv.Paragraph().text.Length()
+	// Is there still more of the paragraph to go?
+	textLen := rv.Paragraph().TextLength()
 	if rv.textOffset < textLen {
 		r := bufio.NewReader(p.reader())
 		_, sz, err := r.ReadRune()
@@ -88,18 +89,24 @@ func (p *Point) Forward() *Point {
 			panic(err)
 		}
 		rv.textOffset += sz
+		return rv
 	}
 
+	// Do we have another paragraph to move to?
+	if rv.paraIndex + 1 >= rv.d.ParagraphCount() {
+		// no, move no further
+		return rv
+	}
+
+	// Move to next paragraph.
+	rv.textOffset = 0
+	rv.paraIndex++
 	nPara := rv.d.paragraphs.Len()
-	for rv.paraIndex < nPara {
-		if rv.textOffset <= rv.Paragraph().text.Length() {
-			return rv
-		}
-		rv.textOffset = 0
+	for rv.paraIndex < nPara && rv.textOffset >= rv.Paragraph().TextLength() {
 		rv.paraIndex++
 	}
 
-	return p.DocumentEnd()
+	return rv
 }
 
 func (p *Point) ForwardN(n int) *Point {

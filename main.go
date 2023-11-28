@@ -48,7 +48,9 @@ func redraw(s tcell.Screen, l *layout.Layout, cp *document.Point) {
 	for y := 0; y < h && !i.Done(); y++ {
 		_, ln := i.Next()
 		for x, cell := range ln.Cells {
-			s.SetContent(x, y, cell.Mainc, cell.Combc, cell.Style)
+			if cell.Mainc != 0 {
+				s.SetContent(x, y, cell.Mainc, cell.Combc, cell.Style)
+			}
 		}
 	}
 
@@ -86,15 +88,15 @@ func main() {
 
 	d = (d.
 		StartPoint().
-		InsertText("This is an example paragraph. ").End().
-		InsertText("This is sentence two of an example paragraph. ").End().
+		InsertText("This is an example paragraph.").End().
+		InsertText(" This is sentence two of an example paragraph. ").End().
 		InsertText("This is sentence three of an example paragraph. ").End().
-		InsertText("This is sentence four of an example paragraph. ").End().
+		InsertText("This is sentence four of an example paragraph.").End().
 		InsertParagraphBreak().End().
-		InsertText("This is another example paragraph. ").End().
-		InsertText("This is sentence two of another example paragraph. ").End().
+		InsertText("This is another example paragraph.").End().
+		InsertText(" This is sentence two of another example paragraph. ").End().
 		InsertText("This is sentence three of another example paragraph. ").End().
-		InsertText("This is sentence four of another example paragraph. ").End().
+		InsertText("This is sentence four of another example paragraph.").End().
 		InsertParagraphBreak().End().
 		InsertText("And another example paragraph.").
 		Document())
@@ -108,6 +110,9 @@ func main() {
 		os.Exit(0)
 	}
 	for {
+		prevP := p
+		needRedraw := false
+
 		// Update screen
 		s.Show()
 
@@ -118,25 +123,25 @@ func main() {
 		switch ev := ev.(type) {
 		case *tcell.EventResize:
 			s.Sync()
-			w, _ = s.Size()
 			l.SetScreenWidth(w)
-			redraw(s, l, p)
+			needRedraw = true
 		case *tcell.EventKey:
-			switch {
-			case ev.Key() == tcell.KeyEscape || ev.Key() == tcell.KeyCtrlC:
+			switch ev.Key() {
+			case tcell.KeyEscape, tcell.KeyCtrlC:
 				quit()
-			case ev.Key() == tcell.KeyEnter:
+			case tcell.KeyEnter:
 				p = p.InsertParagraphBreak().End()
-				d = p.Document()
-				l.SetDocument(d)
-				redraw(s, l, p)
-
-			case ev.Key() == tcell.KeyRune:
+			case tcell.KeyRight:
+				p = p.Forward()
+			case tcell.KeyRune:
 				p = p.InsertText(string(ev.Rune())).End()
-				d = p.Document()
-				l.SetDocument(d)
-				redraw(s, l, p)
 			}
+		}
+
+		if needRedraw || p != prevP {
+			d = p.Document()
+			l.SetDocument(d)
+			redraw(s, l, p)
 		}
 	}
 }

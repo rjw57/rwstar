@@ -54,3 +54,24 @@ func TestInsertPara(t *testing.T) {
 	d = d.StartPoint().ForwardN(2).InsertParagraphBreak().End().InsertText("z").Document()
 	assertDocString(t, d, "AB\nzCxy\nDEF")
 }
+
+func TestForwardToParaEnd(t *testing.T) {
+	d := NewDocument()
+	d = d.StartPoint().InsertText("ABC").End().InsertParagraphBreak().End().InsertText("DEF").Document()
+	d = d.StartPoint().ForwardN(3).InsertText("xyz").Document()
+	assertDocString(t, d, "ABCxyz\nDEF")
+}
+
+func TestForwardToNextPara(t *testing.T) {
+	d := NewDocument()
+	d = d.StartPoint().InsertText("ABC").End().InsertParagraphBreak().End().InsertText("DEF").Document()
+	d = d.StartPoint().ForwardN(4).InsertText("xyz").Document()
+	assertDocString(t, d, "ABC\nxyzDEF")
+}
+
+func TestForwardToDocumentEndDoesNotInsertPara(t *testing.T) {
+	d := NewDocument()
+	d = d.StartPoint().InsertText("ABC").End().InsertParagraphBreak().End().InsertText("DEF").Document()
+	d = d.StartPoint().ForwardN(7).InsertText("xyz").End().Forward().InsertText("X").Document()
+	assertDocString(t, d, "ABC\nDEFxyzX")
+}

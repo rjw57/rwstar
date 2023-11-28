@@ -18,10 +18,21 @@ var (
 )
 
 type Cell struct {
-	Mainc  rune
-	Combc  []rune
-	Style  tcell.Style
-	Offset int
+	// Mainc represents the main rune for this cell. If 0, the cell is the rightmost companion to a
+	// wide character and should not be rendered.
+	Mainc rune
+
+	// Combc holds any combining runes for the cell.
+	Combc []rune
+
+	// Style describes how to render the cell.
+	Style tcell.Style
+
+	// StartOffset gives the location within the parent paragraph of the cell's contents.
+	StartOffset int
+
+	// EndOFfset gices the location within the parent just after the cell's contents.
+	EndOffset int
 }
 
 type Line struct {
@@ -38,44 +49,13 @@ type Layout struct {
 	paraCache   *lru.Cache[*document.Paragraph, Lines]
 }
 
-func (l *Layout) render(p *document.Paragraph) Lines {
-	x := 0
-	line := Line{Cells: make([]Cell, 0, 1), StartOffset: 0}
-	lines := make(Lines, 0, 0)
-	text := p.String()
-	for offset, c := range text {
-		w := 1
-		if x+w > l.screenWidth {
-			line.EndOffset = offset
-			lines = append(lines, line)
-			line = Line{Cells: make([]Cell, 0, 1), StartOffset: offset}
-			x = 0
-		}
-		line.Cells = append(line.Cells, Cell{Mainc: c, Style: tcell.StyleDefault, Offset: offset})
-		x += w
-	}
-
-	if x > 0 {
-		line.EndOffset = len(text)
-		lines = append(lines, line)
-	}
-
-	// blank line
-	lines = append(lines, Line{
-		StartOffset: len(text),
-		EndOffset:   len(text),
-		Cells:       make([]Cell, 0, 0),
-	})
-	return lines
-}
-
 func (l *Layout) getParagraphLines(p *document.Paragraph) Lines {
 	ls, ok := l.paraCache.Get(p)
 	if ok {
 		return ls
 	}
 
-	ls = l.render(p)
+	ls = l.renderParagraphLines(p)
 
 	l.paraCache.Add(p, ls)
 	return ls
@@ -167,7 +147,7 @@ func (l *Layout) CellLocationForPoint(p *document.Point) (int, int, error) {
 				}
 
 				for x, cell := range ln.Cells {
-					if cell.Offset == targetOffset {
+					if cell.StartOffset <= targetOffset && cell.EndOffset > targetOffset {
 						return x, lineIndex + lnIdx, nil
 					}
 				}
