@@ -40,7 +40,7 @@ func drawRuler(s tcell.Screen, y int, m Margins) {
 }
 */
 
-func redraw(s tcell.Screen, l *layout.Layout) {
+func redraw(s tcell.Screen, l *layout.Layout, cp *document.Point) {
 	s.Clear()
 	_, h := s.Size()
 
@@ -49,6 +49,15 @@ func redraw(s tcell.Screen, l *layout.Layout) {
 		_, ln := i.Next()
 		for x, cell := range ln {
 			s.SetContent(x, y, cell.Mainc, cell.Combc, cell.Style)
+		}
+	}
+
+	if cp == nil {
+		s.HideCursor()
+	} else {
+		cx, cy, err := l.CellLocationForPoint(cp)
+		if err == nil {
+			s.ShowCursor(cx, cy)
 		}
 	}
 }
@@ -92,9 +101,8 @@ func main() {
 		Document())
 	l.SetDocument(d)
 
-	redraw(s, l)
-
 	p := d.StartPoint().ForwardN(20)
+	redraw(s, l, p)
 
 	quit := func() {
 		s.Fini()
@@ -113,7 +121,7 @@ func main() {
 			s.Sync()
 			w, _ = s.Size()
 			l.SetScreenWidth(w)
-			redraw(s, l)
+			redraw(s, l, p)
 		case *tcell.EventKey:
 			switch {
 			case ev.Key() == tcell.KeyEscape || ev.Key() == tcell.KeyCtrlC:
@@ -122,13 +130,13 @@ func main() {
 				p = p.InsertParagraphBreak().End()
 				d = p.Document()
 				l.SetDocument(d)
-				redraw(s, l)
+				redraw(s, l, p)
 
 			case ev.Key() == tcell.KeyRune:
 				p = p.InsertText(string(ev.Rune())).End()
 				d = p.Document()
 				l.SetDocument(d)
-				redraw(s, l)
+				redraw(s, l, p)
 			}
 		}
 	}

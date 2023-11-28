@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
@@ -10,6 +11,11 @@ import (
 
 const cacheChunkSizeLog2 = 5
 const cacheChunkSize = 1 << cacheChunkSizeLog2
+
+var (
+	ErrorPointIsFromDifferentDocument = errors.New("Point is from different document")
+	ErrorPointNotFound                = errors.New("Point not found")
+)
 
 type Cell struct {
 	Mainc  rune
@@ -119,6 +125,46 @@ func (l *Layout) String() string {
 	}
 
 	return sb.String()
+}
+
+func (l *Layout) CellLocationForPoint(p *document.Point) (int, int, error) {
+	if p.Document() != l.document {
+		return -1, -1, ErrorPointIsFromDifferentDocument
+	}
+
+	pitr := p.Document().Paragraphs()
+	lineIndex := 0
+	targetPara := p.Paragraph()
+	targetOffset := p.TextOffset()
+	for !pitr.Done() {
+		_, para := pitr.Next()
+		lns := l.getParagraphLines(para)
+
+		if para == targetPara {
+			for lnIdx, ln := range lns {
+				if len(ln) == 0 {
+					continue
+				}
+
+				startOffset := ln[0].Offset
+				endOffset := ln[len(ln)-1].Offset
+				if startOffset > targetOffset || endOffset < targetOffset {
+					continue
+				}
+
+				for x, cell := range ln {
+					if cell.Offset == targetOffset {
+						return x, lineIndex + lnIdx, nil
+					}
+				}
+			}
+			return -1, -1, ErrorPointNotFound
+		}
+
+		lineIndex += len(lns)
+	}
+
+	return -1, -1, ErrorPointNotFound
 }
 
 type LineIterator struct {
