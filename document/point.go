@@ -12,17 +12,8 @@ type Point struct {
 	textOffset int
 }
 
-func (p *Point) para() *Paragraph {
-	return p.d.paragraphs.Get(p.paraIndex)
-}
-
 func (p *Point) reader() *rope.Reader {
-	return p.para().text.OffsetReader(p.textOffset)
-}
-
-func (p *Point) clone() *Point {
-	np := *p
-	return &np
+	return p.Paragraph().text.OffsetReader(p.textOffset)
 }
 
 func (p *Point) withDoc(d *Document) *Point {
@@ -33,6 +24,19 @@ func (p *Point) withDoc(d *Document) *Point {
 
 func (p *Point) Document() *Document {
 	return p.d
+}
+
+func (p *Point) Paragraph() *Paragraph {
+	return p.d.paragraphs.Get(p.paraIndex)
+}
+
+func (p *Point) TextOffset() int {
+	return p.textOffset
+}
+
+func (p *Point) Clone() *Point {
+	np := *p
+	return &np
 }
 
 func (p *Point) IsDocumentEnd() bool {
@@ -51,7 +55,7 @@ func (p *Point) IsParagraphEnd() bool {
 	if p.IsDocumentEnd() {
 		return true
 	}
-	return p.textOffset >= p.para().text.Length()
+	return p.textOffset >= p.Paragraph().text.Length()
 }
 
 func (p *Point) DocumentEnd() *Point {
@@ -63,9 +67,9 @@ func (p *Point) DocumentStart() *Point {
 }
 
 func (p *Point) Forward() *Point {
-	rv := p.clone()
+	rv := p.Clone()
 
-	textLen := rv.para().text.Length()
+	textLen := rv.Paragraph().text.Length()
 	if rv.textOffset < textLen {
 		r := bufio.NewReader(p.reader())
 		_, sz, err := r.ReadRune()
@@ -77,7 +81,7 @@ func (p *Point) Forward() *Point {
 
 	nPara := rv.d.paragraphs.Len()
 	for rv.paraIndex < nPara {
-		if rv.textOffset <= rv.para().text.Length() {
+		if rv.textOffset <= rv.Paragraph().text.Length() {
 			return rv
 		}
 		rv.textOffset = 0
@@ -100,14 +104,14 @@ func (p *Point) InsertText(text string) *Range {
 	if p.IsDocumentEnd() {
 		nd = p.d.appendParagraph(newParagraph(text))
 	} else {
-		para := p.para().insertText(p.textOffset, text)
+		para := p.Paragraph().insertText(p.textOffset, text)
 		nd = p.d.setParagraph(p.paraIndex, para)
 	}
 
 	start := p.withDoc(nd)
-	end := start.clone()
+	end := start.Clone()
 	end.textOffset += len(text)
-	return &Range{start: start, end: end}
+	return NewRange(start, end)
 }
 
 func (p *Point) InsertParagraphBreak() *Range {
@@ -115,16 +119,16 @@ func (p *Point) InsertParagraphBreak() *Range {
 		nd := p.d.appendParagraph(newParagraph(""))
 		np := p.withDoc(nd)
 		np.textOffset = 0
-		return &Range{start: np, end: np}
+		return NewRange(np, np)
 	}
 
-	lp, rp := p.para().split(p.textOffset)
+	lp, rp := p.Paragraph().split(p.textOffset)
 	nd := p.d.replaceParagraphs(p.paraIndex, p.paraIndex+1, []*Paragraph{lp, rp})
 
 	start := p.withDoc(nd)
-	end := start.clone()
+	end := start.Clone()
 	end.paraIndex ++
 	end.textOffset = 0
 
-	return &Range{start: start, end: end}
+	return NewRange(start, end)
 }

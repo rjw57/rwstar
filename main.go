@@ -42,20 +42,14 @@ func drawRuler(s tcell.Screen, y int, m Margins) {
 
 func redraw(s tcell.Screen, l *layout.Layout) {
 	s.Clear()
-	d := l.Document()
 	_, h := s.Size()
 
-	y := 0
-	pitr := d.Paragraphs()
-	for !pitr.Done() && y < h {
-		_, p := pitr.Next()
-		for _, ln := range l.ParagraphLines(p) {
-			for x, cell := range ln {
-				s.SetContent(x, y, cell.Mainc, cell.Combc, cell.Style)
-			}
-			y++
+	i := l.LineIterator(0)
+	for y := 0; y < h && !i.Done(); y++ {
+		_, ln := i.Next()
+		for x, cell := range ln {
+			s.SetContent(x, y, cell.Mainc, cell.Combc, cell.Style)
 		}
-		y++
 	}
 }
 
@@ -100,7 +94,7 @@ func main() {
 
 	redraw(s, l)
 
-	p := d.StartPoint()
+	p := d.StartPoint().ForwardN(20)
 
 	quit := func() {
 		s.Fini()
