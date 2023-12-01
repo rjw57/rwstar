@@ -25,7 +25,7 @@ const (
 
 var (
 	StyleNormal = tcell.StyleDefault.Background(tcell.ColorDarkBlue).Foreground(tcell.ColorLightGray)
-	StyleGlue   = StyleNormal.Foreground(tcell.ColorGrey)
+	StyleGlue   = StyleNormal.Foreground(tcell.ColorDarkGray)
 	StyleMarkup = StyleNormal.Foreground(tcell.ColorDarkCyan)
 )
 
@@ -37,6 +37,12 @@ var (
 type ParagraphItem struct {
 	// Type represents the type of this layout item: box, glue or penalty.
 	Type ParagraphItemType
+
+	// Text is the on-screen content of this item.
+	Text string
+
+	// Style is the on-screen appearance of this item.
+	Style tcell.Style
 
 	// StartOffset is the lowest inclusive offset within the underlying paragraph represented by
 	// this item.
@@ -52,9 +58,10 @@ type ParagraphItem struct {
 	//
 	// Only glue and penalties can break lines. Penalty is ignored for boxes.
 	Penalty ParagraphItemPenalty
+}
 
-	// Cells contains the visual representation of this item if this item is a box.
-	Cells []Cell
+func (p *ParagraphItem) CellCount() int {
+	return uniseg.StringWidth(p.Text)
 }
 
 func appendTextParagraphItems(items []ParagraphItem, text string, startOffset int) []ParagraphItem {
@@ -91,15 +98,11 @@ func appendLineSegmentParagraphItems(items []ParagraphItem, text string, startOf
 		for len(word) > 0 && word[0] == ' ' {
 			item := ParagraphItem{
 				Type:        ParagraphItemTypeGlue,
+				Text:        word[:1],
+				Style:       StyleGlue,
 				StartOffset: startOffset,
 				EndOffset:   startOffset + 1,
 			}
-			item.Cells = []Cell{{
-				Mainc:       tcell.RuneBullet,
-				Style:       StyleGlue,
-				StartOffset: item.StartOffset,
-				EndOffset:   item.EndOffset,
-			}}
 			items = append(items, item)
 			word = word[1:]
 			startOffset++
@@ -108,44 +111,17 @@ func appendLineSegmentParagraphItems(items []ParagraphItem, text string, startOf
 		if len(word) > 0 {
 			item := ParagraphItem{
 				Type:        ParagraphItemTypeBox,
+				Text:        word,
+				Style:       StyleNormal,
 				StartOffset: startOffset,
 				EndOffset:   startOffset + len(word),
 			}
-			item.Cells = appendWordCells(item.Cells, word, startOffset)
 			items = append(items, item)
 			startOffset += len(word)
 		}
 	}
 
 	return items
-}
-
-func appendWordCells(cells []Cell, text string, startOffset int) []Cell {
-	state := -1
-	var cluster string
-
-	for len(text) > 0 {
-		var width int
-		cluster, text, width, state = uniseg.FirstGraphemeClusterInString(text, state)
-
-		clusterRunes := []rune(cluster)
-		cell := Cell{
-			StartOffset: startOffset,
-			EndOffset:   startOffset + len(cluster),
-			Mainc:       clusterRunes[0],
-			Combc:       clusterRunes[1:],
-			Style:       StyleNormal,
-		}
-		cells = append(cells, cell)
-
-		for ; width > 1; width-- {
-			cells = append(cells, Cell{})
-		}
-
-		startOffset += len(cluster)
-	}
-
-	return cells
 }
 
 func (l *Layout) renderParagraphLines(p *document.Paragraph) Lines {
@@ -156,17 +132,27 @@ func (l *Layout) renderParagraphLines(p *document.Paragraph) Lines {
 	items = appendTextParagraphItems(items, text, 0)
 
 	// add forced line break
-	items = append(items, ParagraphItem{
+	items = append(items, []ParagraphItem{{
+		Type:        ParagraphItemTypeBox,
+		Text:        "¶",
+		Style:       StyleMarkup,
+		StartOffset: len(text) + 1,
+		EndOffset:   len(text) + 1,
+	}, {
 		Type:        ParagraphItemTypePenalty,
-		StartOffset: len(text),
-		EndOffset:   len(text),
+		StartOffset: len(text) + 1,
+		EndOffset:   len(text) + 1,
 		Penalty:     ParagraphItemPenaltyAlways,
-	})
+	}}...)
+
+	if items[len(items)-1].Penalty != ParagraphItemPenaltyAlways || items[len(items)-1].Type != ParagraphItemTypePenalty {
+		panic("Paragraph items do not end in forced break.")
+	}
 
 	// array giving running width of boxes up to but not including item at that index
 	runningWidths := make([]int, 1, len(items)+1)
 	for _, item := range items {
-		runningWidths = append(runningWidths, runningWidths[len(runningWidths)-1]+len(item.Cells))
+		runningWidths = append(runningWidths, runningWidths[len(runningWidths)-1]+item.CellCount())
 	}
 
 	lineStartIdx := 0
@@ -187,12 +173,7 @@ func (l *Layout) renderParagraphLines(p *document.Paragraph) Lines {
 
 		// If not feasible or is forced, record line.
 		if w > l.screenWidth || item.Penalty < 0 {
-			startItem := items[lineStartIdx]
-			line := Line{StartOffset: startItem.StartOffset, EndOffset: item.StartOffset}
-			for _, lineItem := range items[lineStartIdx:lineBreakIdx] {
-				line.Cells = append(line.Cells, lineItem.Cells...)
-			}
-			lines = append(lines, line)
+			lines = append(lines, items[lineStartIdx:lineBreakIdx])
 			lineStartIdx = lineBreakIdx + 1
 		}
 	}

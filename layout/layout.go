@@ -35,10 +35,20 @@ type Cell struct {
 	EndOffset int
 }
 
-type Line struct {
-	Cells       []Cell
-	StartOffset int
-	EndOffset   int
+type Line []ParagraphItem
+
+func (l Line) StartOffset() int {
+	if len(l) == 0 {
+		return -1
+	}
+	return l[0].StartOffset
+}
+
+func (l Line) EndOffset() int {
+	if len(l) == 0 {
+		return -1
+	}
+	return l[len(l)-1].EndOffset
 }
 
 type Lines []Line
@@ -108,8 +118,8 @@ func (l *Layout) String() string {
 	for !pitr.Done() {
 		_, p := pitr.Next()
 		for _, ln := range l.getParagraphLines(p) {
-			for _, cell := range ln.Cells {
-				sb.WriteRune(cell.Mainc)
+			for _, item := range ln {
+				sb.WriteString(item.Text)
 			}
 			sb.WriteRune('\n')
 		}
@@ -138,18 +148,21 @@ func (l *Layout) CellLocationForPoint(p *document.Point) (int, int, error) {
 
 		if paraIdx == targetParaIdx {
 			for lnIdx, ln := range lns {
-				if targetOffset >= para.TextLength() && ln.EndOffset >= targetOffset {
-					return len(ln.Cells), lineIndex + lnIdx, nil
-				}
+				// TODO: cursor at end of paragraph
+				//if targetOffset >= para.TextLength() && ln.EndOffset >= targetOffset {
+				//	return len(ln.Cells), lineIndex + lnIdx, nil
+				//}
 
-				if ln.StartOffset > targetOffset || ln.EndOffset <= targetOffset {
+				if ln.StartOffset() > targetOffset || ln.EndOffset() <= targetOffset {
 					continue
 				}
 
-				for x, cell := range ln.Cells {
-					if cell.StartOffset <= targetOffset && cell.EndOffset > targetOffset {
-						return x, lineIndex + lnIdx, nil
+				x := 0
+				for _, item := range ln {
+					if item.StartOffset <= targetOffset && item.EndOffset > targetOffset {
+						return x + targetOffset - item.StartOffset, lineIndex + lnIdx, nil
 					}
+					x += item.CellCount()
 				}
 			}
 			return -1, -1, ErrorPointNotFound

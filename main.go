@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/uniseg"
 	"github.com/rjw57/rwstar/document"
 	"github.com/rjw57/rwstar/layout"
 )
@@ -40,6 +41,23 @@ func drawRuler(s tcell.Screen, y int, m Margins) {
 }
 */
 
+func addText(s tcell.Screen, x, y int, text string, style tcell.Style) (newX int) {
+	newX = x
+	state := -1
+	var cluster string
+
+	for len(text) > 0 {
+		var width int
+		cluster, text, width, state = uniseg.FirstGraphemeClusterInString(text, state)
+
+		clusterRunes := []rune(cluster)
+		s.SetContent(newX, y, clusterRunes[0], clusterRunes[1:], style)
+		newX += width
+	}
+
+	return newX
+}
+
 func redraw(s tcell.Screen, l *layout.Layout, cp *document.Point) {
 	s.Clear()
 	_, h := s.Size()
@@ -47,10 +65,9 @@ func redraw(s tcell.Screen, l *layout.Layout, cp *document.Point) {
 	i := l.LineIterator(0)
 	for y := 0; y < h && !i.Done(); y++ {
 		_, ln := i.Next()
-		for x, cell := range ln.Cells {
-			if cell.Mainc != 0 {
-				s.SetContent(x, y, cell.Mainc, cell.Combc, cell.Style)
-			}
+		x := 0
+		for _, item := range ln {
+			x = addText(s, x, y, item.Text, item.Style)
 		}
 	}
 
@@ -73,8 +90,7 @@ func main() {
 	}
 
 	// Set default text style
-	defStyle := tcell.StyleDefault.Background(tcell.ColorReset).Foreground(tcell.ColorReset)
-	s.SetStyle(defStyle)
+	s.SetStyle(layout.StyleNormal)
 
 	// Clear screen
 	s.Clear()
