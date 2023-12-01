@@ -1,68 +1,10 @@
 package layout
 
 import (
-	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/uniseg"
 
 	"github.com/rjw57/rwstar/document"
 )
-
-type ParagraphItemType int
-
-const (
-	ParagraphItemTypeBox     ParagraphItemType = 0
-	ParagraphItemTypeGlue                      = iota
-	ParagraphItemTypePenalty                   = iota
-)
-
-type ParagraphItemPenalty int
-
-const (
-	ParagraphItemPenaltyNever   ParagraphItemType = 1000
-	ParagraphItemPenaltyNeutral                   = 0
-	ParagraphItemPenaltyAlways                    = -1000
-)
-
-var (
-	StyleNormal = tcell.StyleDefault.Background(tcell.ColorDarkBlue).Foreground(tcell.ColorLightGray)
-	StyleGlue   = StyleNormal.Foreground(tcell.ColorDarkGray)
-	StyleMarkup = StyleNormal.Foreground(tcell.ColorDarkCyan)
-)
-
-// ParagraphItem represents a layout item within a paragraph. Items may be boxes, glue or penalties.
-//
-// Boxes are literal horizontal collections of Cells to be rendered. Glue are Cells which are
-// rendered representing the space between words. Penalties represent explicit line-breaking
-// opportunity points.
-type ParagraphItem struct {
-	// Type represents the type of this layout item: box, glue or penalty.
-	Type ParagraphItemType
-
-	// Text is the on-screen content of this item.
-	Text string
-
-	// Style is the on-screen appearance of this item.
-	Style tcell.Style
-
-	// StartOffset is the lowest inclusive offset within the underlying paragraph represented by
-	// this item.
-	StartOffset int
-
-	// EndOffset is the lowest offset within the underlying paragraph >= StartOffset which is not
-	// represented by this item.
-	EndOffset int
-
-	// Penalty gives a penalty for breaking the line at this item. If the penalty is +ve, the line
-	// will never be broken. If the penalty is 0, the line _may_ be broken. If the penalty is -ve
-	// the line will always be broken.
-	//
-	// Only glue and penalties can break lines. Penalty is ignored for boxes.
-	Penalty ParagraphItemPenalty
-}
-
-func (p *ParagraphItem) CellCount() int {
-	return uniseg.StringWidth(p.Text)
-}
 
 func appendTextParagraphItems(items []ParagraphItem, text string, startOffset int) []ParagraphItem {
 	state := -1
@@ -98,8 +40,6 @@ func appendLineSegmentParagraphItems(items []ParagraphItem, text string, startOf
 		for len(word) > 0 && word[0] == ' ' {
 			item := ParagraphItem{
 				Type:        ParagraphItemTypeGlue,
-				Text:        word[:1],
-				Style:       StyleGlue,
 				StartOffset: startOffset,
 				EndOffset:   startOffset + 1,
 			}
@@ -136,12 +76,12 @@ func (l *Layout) renderParagraphLines(p *document.Paragraph) Lines {
 		Type:        ParagraphItemTypeBox,
 		Text:        "¶",
 		Style:       StyleMarkup,
-		StartOffset: len(text) + 1,
-		EndOffset:   len(text) + 1,
+		StartOffset: len(text),
+		EndOffset:   len(text),
 	}, {
 		Type:        ParagraphItemTypePenalty,
-		StartOffset: len(text) + 1,
-		EndOffset:   len(text) + 1,
+		StartOffset: len(text),
+		EndOffset:   len(text),
 		Penalty:     ParagraphItemPenaltyAlways,
 	}}...)
 

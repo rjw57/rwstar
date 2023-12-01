@@ -13,8 +13,13 @@ const cacheChunkSizeLog2 = 5
 const cacheChunkSize = 1 << cacheChunkSizeLog2
 
 var (
-	ErrorPointIsFromDifferentDocument = errors.New("Point is from different document")
-	ErrorPointNotFound                = errors.New("Point not found")
+	ErrPointIsFromDifferentDocument = errors.New("Point is from different document")
+	ErrPointNotFound                = errors.New("Point not found")
+)
+
+var (
+	StyleNormal = tcell.StyleDefault.Background(tcell.ColorDarkBlue).Foreground(tcell.ColorLightGray)
+	StyleMarkup = StyleNormal.Foreground(tcell.ColorDarkCyan)
 )
 
 type Cell struct {
@@ -130,7 +135,7 @@ func (l *Layout) String() string {
 
 func (l *Layout) CellLocationForPoint(p *document.Point) (int, int, error) {
 	if p.Document() != l.document {
-		return -1, -1, ErrorPointIsFromDifferentDocument
+		return -1, -1, ErrPointIsFromDifferentDocument
 	}
 
 	if l.document.ParagraphCount() == 0 {
@@ -162,16 +167,21 @@ func (l *Layout) CellLocationForPoint(p *document.Point) (int, int, error) {
 					if item.StartOffset <= targetOffset && item.EndOffset > targetOffset {
 						return x + targetOffset - item.StartOffset, lineIndex + lnIdx, nil
 					}
-					x += item.CellCount()
+					switch item.Type {
+					case ParagraphItemTypeBox:
+						x += item.CellCount()
+					case ParagraphItemTypeGlue:
+						x += 1
+					}
 				}
 			}
-			return -1, -1, ErrorPointNotFound
+			return -1, -1, ErrPointNotFound
 		}
 
 		lineIndex += len(lns)
 	}
 
-	return -1, -1, ErrorPointNotFound
+	return -1, -1, ErrPointNotFound
 }
 
 type LineIterator struct {

@@ -67,7 +67,12 @@ func redraw(s tcell.Screen, l *layout.Layout, cp *document.Point) {
 		_, ln := i.Next()
 		x := 0
 		for _, item := range ln {
-			x = addText(s, x, y, item.Text, item.Style)
+			switch item.Type {
+			case layout.ParagraphItemTypeBox:
+				x = addText(s, x, y, item.Text, item.Style)
+			case layout.ParagraphItemTypeGlue:
+				x = addText(s, x, y, " ", layout.StyleNormal)
+			}
 		}
 	}
 
